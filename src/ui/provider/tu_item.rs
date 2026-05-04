@@ -18,7 +18,7 @@ use crate::{
         jellyfin_client::JELLYFIN_CLIENT,
         structs::{
             SimpleListItem,
-            SongWidgetView
+            SongWidgetView,
         },
     },
     ui::{
@@ -49,6 +49,16 @@ use crate::{
 struct AlbumArtist {
     name: String,
     id: String,
+}
+
+#[derive(Default, Hash, Eq, PartialEq, Clone, Copy, glib::Enum, Debug)]
+#[repr(u32)]
+#[enum_type(name = "PreferSize")]
+pub enum PreferSize {
+    #[default]
+    Auto,
+    Video,
+    Post,
 }
 
 pub mod imp {
@@ -96,6 +106,8 @@ pub mod imp {
         poster: RefCell<Option<String>>,
         #[property(get, set, nullable)]
         image_tags: RefCell<Option<crate::ui::provider::image_tags::ImageTags>>,
+        #[property(get, set, builder(PreferSize::default()))]
+        prefer_size: RefCell<PreferSize>,
         #[property(get, set, nullable)]
         role: RefCell<Option<String>>,
         #[property(get, set, nullable)]

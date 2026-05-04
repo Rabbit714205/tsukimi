@@ -12,7 +12,10 @@ use gtk::{
 use crate::{
     client::structs::SimpleListItem,
     ui::{
-        provider::tu_object::TuObject,
+        provider::{
+            tu_item::PreferSize,
+            tu_object::TuObject,
+        },
         widgets::fix::ScrolledWindowFixExt,
     },
 };
@@ -62,6 +65,9 @@ mod imp {
         pub moreview: RefCell<bool>,
         #[property(get, set)]
         pub title: RefCell<String>,
+
+        #[property(get, set, default_value = false)]
+        pub unify_size: RefCell<bool>,
 
         pub show_button_animation: OnceCell<adw::TimedAnimation>,
         pub hide_button_animation: OnceCell<adw::TimedAnimation>,
@@ -161,11 +167,14 @@ impl HortuScrolled {
 
         self.set_visible(true);
 
+        let prefer_size = self.evaluate_prefer_size(items);
+
         let items = items
             .iter()
             .map(|item| {
                 let object = TuObject::from_simple(item, None);
                 object.item().set_is_resume(self.isresume());
+                object.item().set_prefer_size(prefer_size);
                 object
             })
             .collect::<Vec<_>>();
@@ -188,6 +197,26 @@ impl HortuScrolled {
 
         self.imp().left_button.opacity() >= 0.68
             || self.show_controls_animation().state() == adw::AnimationState::Playing
+    }
+
+    fn evaluate_prefer_size(&self, items: &[SimpleListItem]) -> PreferSize {
+        if !self.unify_size() {
+            return PreferSize::Auto;
+        }
+        let primary_ratio: Vec<_> = items
+            .iter()
+            .filter_map(|i| i.primary_image_aspect_ratio)
+            .collect();
+        if primary_ratio.is_empty() {
+            return PreferSize::Auto;
+        }
+        let video_percentage =
+            primary_ratio.iter().filter(|i| **i > 1.0).count() as f64 / primary_ratio.len() as f64;
+        match video_percentage {
+            p if p > 0.8 => PreferSize::Video,
+            p if p < 0.2 => PreferSize::Post,
+            _ => PreferSize::Auto,
+        }
     }
 
     fn show_controls_animation(&self) -> &adw::TimedAnimation {

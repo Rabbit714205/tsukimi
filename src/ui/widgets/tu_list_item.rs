@@ -438,6 +438,18 @@ impl TuListItem {
                 warn!("Unknown item type: {}", item_type)
             }
         }
+        // if the item has a prefer size, use it to override the default size
+        match item.prefer_size() {
+            crate::ui::provider::tu_item::PreferSize::Video => {
+                imp.overlay
+                    .set_size_request(TU_ITEM_VIDEO_SIZE.0, TU_ITEM_VIDEO_SIZE.1);
+            }
+            crate::ui::provider::tu_item::PreferSize::Post => {
+                imp.overlay
+                    .set_size_request(TU_ITEM_POST_SIZE.0, TU_ITEM_POST_SIZE.1);
+            }
+            _ => {}
+        }
 
         self.set_tooltip_text(Some(&item.name()));
     }
