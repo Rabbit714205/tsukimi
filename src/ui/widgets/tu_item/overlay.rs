@@ -1,7 +1,10 @@
 use gtk::prelude::*;
 
 use crate::ui::{
-    provider::tu_item::TuItem,
+    provider::tu_item::{
+        PreferPoster,
+        TuItem,
+    },
     widgets::{
         picture_loader::PictureLoader,
         tu_list_item::imp::PosterType,
@@ -50,20 +53,38 @@ pub trait TuItemOverlayPrelude {
                 }
             }
         }
-
-        if item.is_resume() {
-            Self::set_overlay_size(&self.overlay(), TU_ITEM_VIDEO_SIZE.0, TU_ITEM_VIDEO_SIZE.1);
-            if let Some(parent_thumb_item_id) = item.parent_thumb_item_id() {
-                ("Thumb", None, parent_thumb_item_id)
-            } else if let Some(parent_backdrop_item_id) = item.parent_backdrop_item_id() {
-                ("Backdrop", Some(0.to_string()), parent_backdrop_item_id)
-            } else {
-                ("Backdrop", Some(0.to_string()), item.id())
+        match item.prefer_poster() {
+            // Continue Watching, use parent video poster if possible
+            PreferPoster::ParentVideo => {
+                if let Some(parent_thumb_item_id) = item.parent_thumb_item_id() {
+                    ("Thumb", None, parent_thumb_item_id)
+                } else if let Some(parent_backdrop_item_id) = item.parent_backdrop_item_id() {
+                    ("Backdrop", Some(0.to_string()), parent_backdrop_item_id)
+                } else {
+                    ("Backdrop", Some(0.to_string()), item.id())
+                }
             }
-        } else if let Some(img_tags) = item.primary_image_item_id() {
-            ("Primary", None, img_tags)
-        } else {
-            ("Primary", None, item.id())
+            // Latest, use parent primary image if possible, this is for latest episodes
+            PreferPoster::ParentPost
+                if let Some(parent_backdrop_item_id) = item.parent_backdrop_item_id() =>
+            {
+                ("Primary", None, parent_backdrop_item_id)
+            }
+            _ => {
+                if let Some(img_tags) = item.primary_image_item_id() {
+                    // use primary image if possible
+                    ("Primary", None, img_tags)
+                } else if item.image_tags().is_none_or(|t| t.all_none())
+                    && let Some(parent_backdrop_item_id) = item.parent_backdrop_item_id()
+                {
+                    // fallback to parent backdrop if no image tags and parent backdrop exists, this
+                    // is for some season items that don't have image tags
+                    ("Primary", None, parent_backdrop_item_id)
+                } else {
+                    // finally fallback to primary image with item id
+                    ("Primary", None, item.id())
+                }
+            }
         }
     }
 

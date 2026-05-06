@@ -22,6 +22,10 @@ use gtk::{
 };
 
 use super::{
+    hortu_scrolled::{
+        UnifySize,
+        resolve_prefer_size,
+    },
     single_grid::imp::ViewType,
     tu_list_item::imp::PosterType,
     tu_overview_item::imp::ViewGroup,
@@ -30,7 +34,11 @@ use super::{
 use crate::{
     client::structs::SimpleListItem,
     ui::provider::{
-        tu_item::TuItem,
+        tu_item::{
+            PreferPoster,
+            PreferSize,
+            TuItem,
+        },
         tu_object::TuObject,
     },
 };
@@ -42,13 +50,17 @@ pub(crate) mod imp {
         atomic::AtomicBool,
     };
 
+    use std::cell::RefCell;
+
     use glib::subclass::InitializingObject;
+    use gtk::glib::Properties;
 
     use super::*;
     use crate::ui::provider::tu_object::TuObject;
 
-    #[derive(CompositeTemplate, Default)]
+    #[derive(CompositeTemplate, Default, Properties)]
     #[template(resource = "/moe/tsuna/tsukimi/ui/tuview_scrolled.ui")]
+    #[properties(wrapper_type = super::TuViewScrolled)]
     pub struct TuViewScrolled {
         #[template_child]
         pub scrolled_window: TemplateChild<gtk::ScrolledWindow>,
@@ -61,6 +73,10 @@ pub(crate) mod imp {
 
         pub selection: gtk::SingleSelection,
         pub lock: Arc<AtomicBool>,
+
+        #[property(get, set, builder(UnifySize::default()))]
+        pub unify_size: RefCell<UnifySize>,
+        pub prefer_size_cache: RefCell<PreferSize>,
     }
 
     #[glib::object_subclass]
@@ -79,6 +95,7 @@ pub(crate) mod imp {
         }
     }
 
+    #[glib::derived_properties]
     impl ObjectImpl for TuViewScrolled {
         fn constructed(&self) {
             self.parent_constructed();
@@ -109,7 +126,9 @@ impl TuViewScrolled {
         glib::Object::new()
     }
 
-    pub fn set_store<const C: bool>(&self, items: Vec<SimpleListItem>, is_resume: bool) {
+    pub fn set_store<const C: bool>(
+        &self, items: Vec<SimpleListItem>, is_resume: bool, prefer_poster: PreferPoster,
+    ) {
         let imp = self.imp();
         let Some(store) = imp.selection.model().and_downcast::<gio::ListStore>() else {
             return;
@@ -117,11 +136,17 @@ impl TuViewScrolled {
 
         if C {
             store.remove_all();
+            let size = resolve_prefer_size(self.unify_size(), &items);
+            self.imp().prefer_size_cache.replace(size);
         }
+
+        let prefer_size = *self.imp().prefer_size_cache.borrow();
 
         for item in items {
             let tu_item = TuItem::from_simple(&item, None);
             tu_item.set_is_resume(is_resume);
+            tu_item.set_prefer_poster(prefer_poster);
+            tu_item.set_prefer_size(prefer_size);
             let tu_item = TuObject::new(&tu_item);
             store.append(&tu_item);
         }

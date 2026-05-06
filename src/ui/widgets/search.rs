@@ -15,7 +15,10 @@ use crate::{
         jellyfin_client::JELLYFIN_CLIENT,
         structs::*,
     },
-    ui::provider::tu_item::TuItem,
+    ui::provider::tu_item::{
+        PreferPoster,
+        TuItem,
+    },
     utils::{
         spawn,
         spawn_tokio,
@@ -44,9 +47,13 @@ mod imp {
     use gtk::prelude::*;
 
     use crate::{
-        ui::widgets::{
-            filter_panel::FilterPanelDialog,
-            tuview_scrolled::TuViewScrolled,
+        ui::{
+            provider::tu_item::PreferPoster,
+            widgets::{
+                filter_panel::FilterPanelDialog,
+                hortu_scrolled::UnifySize,
+                tuview_scrolled::TuViewScrolled,
+            },
         },
         utils::spawn,
     };
@@ -108,6 +115,9 @@ mod imp {
         fn constructed(&self) {
             let obj = self.obj();
             self.parent_constructed();
+            self.searchscrolled
+                .get()
+                .set_unify_size(UnifySize::Majority);
             self.searchscrolled.connect_end_edge_reached(glib::clone!(
                 #[weak]
                 obj,
@@ -122,7 +132,11 @@ mod imp {
 
                             let search_results = obj.get_search_results::<true>().await;
 
-                            scrolled.set_store::<false>(search_results.items, false);
+                            scrolled.set_store::<false>(
+                                search_results.items,
+                                false,
+                                PreferPoster::Auto,
+                            );
 
                             scrolled.reveal_spinner(false);
 
@@ -238,7 +252,7 @@ impl SearchPage {
         };
 
         imp.searchscrolled
-            .set_store::<true>(search_results.items, false);
+            .set_store::<true>(search_results.items, false, PreferPoster::Auto);
 
         imp.stack.set_visible_child_name("result");
     }
