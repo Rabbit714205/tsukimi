@@ -28,6 +28,7 @@ mod imp {
 
     use crate::{
         ui::{
+            SETTINGS,
             mpv::{
                 control_sidebar::MPVControlSidebar,
                 page::MPVPage,
@@ -124,6 +125,9 @@ mod imp {
         pub mpv_playlist_selection: gtk::SingleSelection,
 
         pub suspend_cookie: RefCell<Option<u32>>,
+
+        #[template_child]
+        pub sidebar_breakpoint: TemplateChild<adw::Breakpoint>,
     }
 
     #[glib::object_subclass]
@@ -196,6 +200,23 @@ mod imp {
                 .set_player(Some(&self.mpvnav.imp().video.get()));
 
             let obj = self.obj();
+
+            self.sidebar_breakpoint.connect_apply(glib::clone!(
+                #[weak]
+                obj,
+                move |_breakpoint| {
+                    obj.imp().split_view.set_collapsed(true);
+                }
+            ));
+            self.sidebar_breakpoint.connect_unapply(glib::clone!(
+                #[weak]
+                obj,
+                move |_breakpoint| {
+                    if !SETTINGS.is_overlay() {
+                        obj.imp().split_view.set_collapsed(false);
+                    }
+                }
+            ));
 
             obj.bind_about_action();
 
@@ -748,13 +769,14 @@ impl Window {
 
     pub fn play_media(
         &self, selected: Option<SelectedVideoSubInfo>, item: TuItem, episode_list: Vec<TuItem>,
-        matcher: Option<String>, per: f64,
+        matcher: Option<String>, start_seconds: f64,
     ) {
         let imp = self.imp();
         imp.stack.set_visible_child_name("mpv");
         self.prevent_suspend();
         self.set_mpv_playlist(&episode_list);
-        imp.mpvnav.play(selected, item, episode_list, matcher, per);
+        imp.mpvnav
+            .play(selected, item, episode_list, matcher, start_seconds);
     }
 
     pub fn push_page<T>(&self, page: &T, tag: &str, name: &str)
